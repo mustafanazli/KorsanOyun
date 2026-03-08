@@ -1,53 +1,62 @@
 using UnityEngine;
+using UnityEngine.EventSystems; // 3. DEÐÝÞÝKLÝK: Fareyle arayüze (kutuya) týkladýðýmýzý anlamak için eklendi!
+using System.Collections;
 
 public class YemekSistemi : MonoBehaviour
 {
     [Header("Görsel ve Animasyon")]
-    public GameObject eldekiMuz; // Karakterin elindeki 3D muz
+    public GameObject eldekiMuz;
     public Animator anim;
 
-    [Header("Sistemler")]
-    public PlayerHealth canSistemi; // Can barý kodumuz
-    // public EnvanterKontrol envanter; // (Bunu birazdan envanterden silmek için kullanacaðýz)
+    [Header("Sistem Baðlantýlarý")]
+    public PlayerHealth canSistemi;
+    public EnvanterKontrol envanterSistemi;
+    public ItemData muzVerisi;
 
-    private bool muzElindeMi = false;
+    [Header("Yeme Ayarlarý")]
+    public float yemeSuresi = 2f;
+    public float kazanilanCan = 20f;
+
+    private bool yemekYiyorMu = false;
+
+    void Start()
+    {
+        if (eldekiMuz != null) eldekiMuz.SetActive(false);
+    }
 
     void Update()
     {
-        // 3 Tuþuna basýldýðýnda
-        if (Input.GetKeyDown(KeyCode.Alpha3))
+        ItemData eldeNeVar = envanterSistemi.SeciliHotbarEsyasiniGetir();
+        bool muzVarVeSecili = (eldeNeVar != null && eldeNeVar == muzVerisi);
+
+        // Eðer envanter açýksa eldeki muzu anýnda gizle!
+        if (!yemekYiyorMu && eldekiMuz != null)
         {
-            MuzuEleAl();
+            eldekiMuz.SetActive(muzVarVeSecili && !envanterSistemi.envanterAcikMi);
         }
 
-        // Muz elindeyken Farenin Sol Týk'ýna basarsa
-        if (muzElindeMi && Input.GetMouseButtonDown(0))
+        // 4. DEÐÝÞÝKLÝK: Fareyle bir kutucuðun veya arayüzün üzerinde miyiz?
+        bool arayuzeTikliyorMu = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+
+        // Muz seçiliyse + Sol Týka basýldýysa + Yemiyorsak + ÇANTA KAPALIYSA + EKRANDAKÝ KUTULARA TIKLAMIYORSAK yiyebiliriz!
+        if (muzVarVeSecili && Input.GetMouseButtonDown(0) && !yemekYiyorMu && !envanterSistemi.envanterAcikMi && !arayuzeTikliyorMu)
         {
-            YemegiYe();
+            StartCoroutine(MuzYemeRutini());
         }
     }
 
-    void MuzuEleAl()
+    IEnumerator MuzYemeRutini()
     {
-        // TODO: Ýleride buraya "Envanterde muz var mý?" kontrolü ekleyeceðiz.
-        // Þimdilik 3'e basýnca direkt eline alýp býraksýn.
+        yemekYiyorMu = true;
 
-        muzElindeMi = !muzElindeMi; // Durumu tersine çevir (Elindeyse býrak, deðilse al)
-        eldekiMuz.SetActive(muzElindeMi); // Ekranda göster/gizle
-    }
+        if (envanterSistemi.SeciliHotbarEsyasiniTuket(muzVerisi))
+        {
+            if (anim != null) anim.SetTrigger("YemekYe");
+            yield return new WaitForSeconds(yemeSuresi);
+            if (canSistemi != null) canSistemi.Iyilestir(kazanilanCan);
+            Debug.Log("Afiyet olsun! Muz yendi!");
+        }
 
-    void YemegiYe()
-    {
-        // 1. Animasyonu tetikle
-        if (anim != null) anim.SetTrigger("YemekYe");
-
-        // 2. Caný doldur (Örn: 20 can versin)
-        if (canSistemi != null) canSistemi.Iyilestir(20f);
-
-        // 3. Muzu elinden kaybet
-        muzElindeMi = false;
-        eldekiMuz.SetActive(false);
-
-        // TODO: Envanterden 1 adet muzu silme kodunu buraya ekleyeceðiz!
+        yemekYiyorMu = false;
     }
 }

@@ -4,33 +4,50 @@ public class InteractionManager : MonoBehaviour
 {
     public float interactionDistance = 3f;
     public EnvanterKontrol envanterSistemi;
-
-    // Not: Ekranda yazý çýkma iþini Billboard.cs yaptýðý için 
-    // buradaki mesafe kontrolünü sadeleþtirdik.
+    public GameObject dumenEtkilesimYazisi;
 
     void Update()
     {
         Ray ray = new Ray(transform.position, transform.forward);
         RaycastHit hit;
 
+        bool dumeneBakiyor = false;
+
         if (Physics.Raycast(ray, out hit, interactionDistance))
         {
             if (hit.collider.CompareTag("Varil"))
             {
-                if (Input.GetKeyDown(KeyCode.E))
+                // 2. DEÐÝÞÝKLÝK: F'ye bastýðýmýzda, sadece çanta KAPALIYSA varili aç!
+                if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
                 {
-                    // 1. Bakýlan varilin içindeki eþya listesini al
                     VarilIcerigi varil = hit.collider.GetComponent<VarilIcerigi>();
-
                     if (varil != null)
                     {
-                        // 2. Önce envanter panelini o eþyalarla doldur
                         envanterSistemi.VarilPaneliniDoldur(varil);
-                        // 3. Sonra paneli aç
                         envanterSistemi.VarilLootEkraniAc();
                     }
                 }
             }
+            else if (hit.collider.CompareTag("Dumen"))
+            {
+                GemiKontrol gemi = hit.collider.GetComponentInParent<GemiKontrol>();
+
+                if (gemi != null && !gemi.dumenBende)
+                {
+                    dumeneBakiyor = true;
+
+                    // Ayný þekilde, çanta açýkken yanlýþlýkla dümeni de tutmayalým
+                    if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
+                    {
+                        gemi.DumeniTutVeyaBirak();
+                    }
+                }
+            }
+        }
+
+        if (dumenEtkilesimYazisi != null)
+        {
+            dumenEtkilesimYazisi.SetActive(dumeneBakiyor);
         }
     }
 }

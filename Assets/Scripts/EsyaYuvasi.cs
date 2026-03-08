@@ -12,48 +12,46 @@ public class EsyaYuvasi : MonoBehaviour, IDropHandler
 
             if (suruklenen != null && suruklenenUI != null)
             {
-                // DURUM 1: Yuva tamamen boþsa direkt yerleþ
+                // DURUM 1: Yuva tamamen boþsa
                 if (transform.childCount == 0)
                 {
                     suruklenen.asilYuva = this.transform;
                 }
                 else
                 {
-                    // DURUM 2: Yuvada zaten bir eþya var!
+                    // DURUM 2: Yuvada zaten bir eþya var
                     Transform yuvadakiEsya = transform.GetChild(0);
                     InventoryItemUI yuvadakiUI = yuvadakiEsya.GetComponent<InventoryItemUI>();
 
                     if (yuvadakiUI != null)
                     {
-                        // A. Ýkisi de AYNI eþyaysa (Muz + Muz) -> BÝRLEÞTÝR
+                        // A. Ýkisi de AYNI eþyaysa -> BÝRLEÞTÝR
                         if (suruklenenUI.esyaVerisi == yuvadakiUI.esyaVerisi)
                         {
                             int toplam = yuvadakiUI.miktar + suruklenenUI.miktar;
-                            int maxKapasite = yuvadakiUI.esyaVerisi.maxYigin;
+                            int maxKapasite = 20; // 3. GÖREV: HER ÞEY ÝÇÝN MAX STACK 20 OLDU!
 
                             if (toplam <= maxKapasite)
                             {
-                                // Hepsi sýðdý: Yuvadaki eþyanýn sayýsýný artýr, sürükleneni yok et
                                 yuvadakiUI.SlotuGuncelle(yuvadakiUI.esyaVerisi, toplam);
                                 Destroy(suruklenen.gameObject);
                             }
                             else
                             {
-                                // Sýðmayan kaldýysa: Yuvayý fulle, kalaný sürüklenende býrak
                                 int eklenecek = maxKapasite - yuvadakiUI.miktar;
                                 yuvadakiUI.SlotuGuncelle(yuvadakiUI.esyaVerisi, maxKapasite);
                                 suruklenenUI.SlotuGuncelle(suruklenenUI.esyaVerisi, suruklenenUI.miktar - eklenecek);
-                                // Kalan miktar kendi eski yuvasýna geri döner
                             }
                         }
-                        // B. FARKLI eþyalarsa (Muz + Gülle) -> YER DEÐÝÞTÝR (SWAP)
+                        // B. FARKLI eþyalarsa -> KUSURSUZ YER DEÐÝÞTÝR (SWAP)
                         else
                         {
                             SuruklenebilirEsya yuvadakiSuruklenen = yuvadakiEsya.GetComponent<SuruklenebilirEsya>();
 
-                            // Yuvadakini, sürüklenenin eski yerine gönder
-                            yuvadakiSuruklenen.asilYuva = suruklenen.asilYuva;
+                            // 4. GÖREV: Yuvadakini, sürüklenenin eski yerine gönder ve tam merkeze oturt
                             yuvadakiEsya.SetParent(suruklenen.asilYuva);
+                            yuvadakiSuruklenen.asilYuva = suruklenen.asilYuva;
+                            yuvadakiEsya.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
 
                             // Sürükleneni de yeni yuvaya al
                             suruklenen.asilYuva = this.transform;
