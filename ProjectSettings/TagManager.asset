@@ -8,11 +8,12 @@ TagManager:
   - Merdiven
   - Su
   - Dumen
+  - Top
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Minimap
   - Water
   - UI
   - 
