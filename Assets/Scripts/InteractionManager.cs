@@ -80,6 +80,10 @@ public class InteractionManager : MonoBehaviour
                     }
                 }
             }
+            else if (hit.collider.CompareTag("Su"))
+            {
+                
+            }
 
         }
 
