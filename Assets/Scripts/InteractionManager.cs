@@ -80,10 +80,50 @@ public class InteractionManager : MonoBehaviour
                     }
                 }
             }
+            else if (hit.collider.CompareTag("NPC"))
+            {
+                yaziAcikMi = true;
+                gosterilecekMetin = "Konuþ [F]";
+
+                if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
+                {
+                    Debug.Log("SÝSTEM: F tuþuna basýldý, NPC kodu aranýyor..."); // Dedektif 1
+
+                    NPCGorevSistemi npc = hit.collider.GetComponent<NPCGorevSistemi>();
+
+                    if (npc != null)
+                    {
+                        npc.NPCIleKonus();
+                    }
+                    else
+                    {
+                        Debug.LogWarning("HATA: Lazerin çarptýðý objede NPCGorevSistemi kodu BULUNAMADI! Kodu yanlýþ objeye atmýþ olabilirsin."); // Dedektif 2
+                    }
+                }
+            }
+            else if (hit.collider.CompareTag("Sandik"))
+            {
+                yaziAcikMi = true;
+                gosterilecekMetin = "Sandýðý Al [F]";
+
+                if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
+                {
+                    // Sahnedeki NPC'yi bul ve ona sandýðý aldýðýmýzý söyle
+                    NPCGorevSistemi npc = Object.FindAnyObjectByType<NPCGorevSistemi>();
+                    if (npc != null)
+                    {
+                        npc.SandigiSirtla();
+                    }
+
+                    // Sandýðý yerden sil (Artýk sýrtýmýzda sayýyoruz)
+                    Destroy(hit.collider.gameObject);
+                }
+            }
             else if (hit.collider.CompareTag("Su"))
             {
                 
             }
+           
 
         }
 
