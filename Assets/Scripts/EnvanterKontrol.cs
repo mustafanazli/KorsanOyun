@@ -4,14 +4,14 @@ using System.Collections.Generic;
 
 public class EnvanterKontrol : MonoBehaviour
 {
-    [Header("Paneller")]
+    [Header("Paneller (OTOMATÝK BULUNACAK)")]
     public GameObject anaLootEkrani;
     public GameObject oyuncuEnvanterPaneli;
     public GameObject varilEnvanterPaneli;
     public GameObject hotbarPaneli;
 
     [Header("Hotbar Ayarlarý")]
-    public Transform[] hotbarSlotlari;
+    public Transform[] hotbarSlotlari = new Transform[0]; // KIRMIZI HATAYI ÖNLER
     public Color aktifSlotRengi = new Color(0.5f, 0.5f, 0.5f, 1f);
     public Color pasifSlotRengi = new Color(0.15f, 0.15f, 0.15f, 0.8f);
     public int seciliSlotIndex = 0;
@@ -20,16 +20,46 @@ public class EnvanterKontrol : MonoBehaviour
     public GameObject itemPrefab;
 
     private RectTransform oyuncuPanelRect;
-
-    // 1. DEÐÝÞÝKLÝK: private olan bu deðiþkeni public yaptýk ki diðer kodlar çantanýn açýk olduðunu bilsin!
     public bool envanterAcikMi = false;
-
     private VarilIcerigi acikVaril;
 
     void Start()
     {
-        oyuncuPanelRect = oyuncuEnvanterPaneli.GetComponent<RectTransform>();
-        if (hotbarPaneli != null) hotbarPaneli.SetActive(true);
+        // --- SADECE 'Canvas' ÝSÝMLÝ ANA EKRANI BUL ---
+        GameObject anaCanvas = GameObject.Find("Canvas");
+
+        if (anaCanvas != null)
+        {
+            Transform[] tumUIObjeleri = anaCanvas.GetComponentsInChildren<Transform>(true);
+
+            foreach (Transform obje in tumUIObjeleri)
+            {
+                if (obje.name == "OyuncuEnvanterPaneli") oyuncuEnvanterPaneli = obje.gameObject;
+                else if (obje.name == "VarilEnvanterPaneli") varilEnvanterPaneli = obje.gameObject;
+                else if (obje.name == "HotbarPaneli") hotbarPaneli = obje.gameObject;
+                else if (obje.name == "AnaLootEkrani") anaLootEkrani = obje.gameObject;
+            }
+        }
+        else
+        {
+            Debug.LogError("HATA: Sahnede 'Canvas' isminde obje bulunamadý!");
+        }
+
+        if (hotbarPaneli != null)
+        {
+            hotbarSlotlari = new Transform[hotbarPaneli.transform.childCount];
+            for (int i = 0; i < hotbarPaneli.transform.childCount; i++)
+            {
+                hotbarSlotlari[i] = hotbarPaneli.transform.GetChild(i);
+            }
+            hotbarPaneli.SetActive(true);
+        }
+
+        if (oyuncuEnvanterPaneli != null)
+        {
+            oyuncuPanelRect = oyuncuEnvanterPaneli.GetComponent<RectTransform>();
+        }
+
         SlotSec(0);
     }
 
@@ -106,16 +136,18 @@ public class EnvanterKontrol : MonoBehaviour
     public void VarilLootEkraniAc()
     {
         envanterAcikMi = true;
-        anaLootEkrani.SetActive(true);
-        oyuncuEnvanterPaneli.SetActive(true);
-        varilEnvanterPaneli.SetActive(true);
-        oyuncuPanelRect.anchoredPosition = new Vector2(-250f, 0);
+        if (anaLootEkrani != null) anaLootEkrani.SetActive(true);
+        if (oyuncuEnvanterPaneli != null) oyuncuEnvanterPaneli.SetActive(true);
+        if (varilEnvanterPaneli != null) varilEnvanterPaneli.SetActive(true);
+        if (oyuncuPanelRect != null) oyuncuPanelRect.anchoredPosition = new Vector2(-250f, 0);
         FareyiAyirla(true);
     }
 
     public void VarilPaneliniDoldur(VarilIcerigi varil)
     {
         acikVaril = varil;
+        if (varilEnvanterPaneli == null) return;
+
         EsyaYuvasi[] slotlar = varilEnvanterPaneli.GetComponentsInChildren<EsyaYuvasi>();
 
         foreach (var slot in slotlar) foreach (Transform child in slot.transform) Destroy(child.gameObject);
@@ -134,7 +166,7 @@ public class EnvanterKontrol : MonoBehaviour
 
     public void MenuyuKapat()
     {
-        if (acikVaril != null)
+        if (acikVaril != null && varilEnvanterPaneli != null)
         {
             acikVaril.sandikIcerigi.Clear();
             EsyaYuvasi[] varilSlotlari = varilEnvanterPaneli.GetComponentsInChildren<EsyaYuvasi>();
@@ -157,9 +189,9 @@ public class EnvanterKontrol : MonoBehaviour
         }
 
         envanterAcikMi = false;
-        anaLootEkrani.SetActive(false);
-        oyuncuEnvanterPaneli.SetActive(false);
-        varilEnvanterPaneli.SetActive(false);
+        if (anaLootEkrani != null) anaLootEkrani.SetActive(false);
+        if (oyuncuEnvanterPaneli != null) oyuncuEnvanterPaneli.SetActive(false);
+        if (varilEnvanterPaneli != null) varilEnvanterPaneli.SetActive(false);
         FareyiAyirla(false);
     }
 
@@ -171,9 +203,9 @@ public class EnvanterKontrol : MonoBehaviour
 
     public void KendiCantamiziAc()
     {
-        anaLootEkrani.SetActive(true);
-        varilEnvanterPaneli.SetActive(false);
-        oyuncuPanelRect.anchoredPosition = Vector2.zero;
+        if (anaLootEkrani != null) anaLootEkrani.SetActive(true);
+        if (varilEnvanterPaneli != null) varilEnvanterPaneli.SetActive(false);
+        if (oyuncuPanelRect != null) oyuncuPanelRect.anchoredPosition = Vector2.zero;
         FareyiAyirla(true);
     }
 }

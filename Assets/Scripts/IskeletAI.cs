@@ -3,20 +3,24 @@ using UnityEngine.AI;
 
 public class IskeletAI : MonoBehaviour
 {
+    [Header("Can Ayarlarý")]
+    public float can = 50f;
+    public int dusecekAltin = 15; // Kesince ne kadar para verecek?
+
     [Header("Saldýrý Ayarlarý")]
-    public float saldiriMesafesi = 2f; // Ne kadar yaklaþýnca vuracak?
-    public float saldiriHizi = 1.5f; // Kaç saniyede bir vuracak?
-    public int verilecekHasar = 10; // Her vuruþta kaç can gidecek?
+    public float saldiriMesafesi = 2f;
+    public float saldiriHizi = 1.5f;
+    public int verilecekHasar = 10;
 
     private Transform oyuncu;
     private NavMeshAgent ajan;
     private float saldiriZamanlayici = 0f;
+    private bool oluMu = false;
 
     void Start()
     {
         ajan = GetComponent<NavMeshAgent>();
 
-        // Ýskelet doðduðu an etrafa bakýp "Player" etiketli oyuncuyu bulur
         GameObject hedeflenenOyuncu = GameObject.FindGameObjectWithTag("Player");
         if (hedeflenenOyuncu != null)
         {
@@ -26,19 +30,17 @@ public class IskeletAI : MonoBehaviour
 
     void Update()
     {
-        if (oyuncu == null) return;
+        if (oyuncu == null || oluMu) return;
 
         float mesafe = Vector3.Distance(transform.position, oyuncu.position);
 
         if (mesafe > saldiriMesafesi)
         {
-            // 1. DURUM: Uzaðýz, oyuncuya doðru koþ!
             ajan.isStopped = false;
             ajan.SetDestination(oyuncu.position);
         }
         else
         {
-            // 2. DURUM: Yakýnýz, dur ve yüzünü oyuncuya dönerek saldýr!
             ajan.isStopped = true;
             YuzunuOyuncuyaDon();
 
@@ -46,7 +48,7 @@ public class IskeletAI : MonoBehaviour
             if (saldiriZamanlayici >= saldiriHizi)
             {
                 Saldir();
-                saldiriZamanlayici = 0f; // Zamanlayýcýyý sýfýrla ki peþ peþe taramalý tüfek gibi vurmasýn
+                saldiriZamanlayici = 0f;
             }
         }
     }
@@ -61,11 +63,50 @@ public class IskeletAI : MonoBehaviour
 
     void Saldir()
     {
-        // Oyuncunun can kodunu bul ve hasar ver
         OyuncuCanSistemi oyuncuCan = oyuncu.GetComponent<OyuncuCanSistemi>();
         if (oyuncuCan != null)
         {
             oyuncuCan.HasarAl(verilecekHasar);
         }
+    }
+
+    public void HasarAl(float hasar)
+    {
+        if (oluMu) return;
+
+        can -= hasar;
+        if (can <= 0)
+        {
+            Olum();
+        }
+    }
+
+    void Olum()
+    {
+        oluMu = true;
+
+        // 1. Ekip kasasýný bul ve altýný yatýr
+        EkipKasasi kasa = Object.FindAnyObjectByType<EkipKasasi>();
+        if (kasa != null)
+        {
+            kasa.KasayaAltinEkle(dusecekAltin);
+        }
+
+        // 2. NPC'yi bul ve görev için sayacý artýrmasýný söyle (YENÝ EKLENDÝ)
+        NPCGorevSistemi npc = Object.FindAnyObjectByType<NPCGorevSistemi>();
+        if (npc != null)
+        {
+            npc.IskeletKestik();
+        }
+
+        // 3. Spawner'a öldüðünü haber ver
+        IskeletSpawner spawner = GetComponentInParent<IskeletSpawner>();
+        if (spawner != null)
+        {
+            spawner.IskeletOldu();
+        }
+
+        // 4. Ýskeleti yok et
+        Destroy(gameObject);
     }
 }

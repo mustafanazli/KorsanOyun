@@ -1,18 +1,37 @@
 using UnityEngine;
-using TMPro; // Yazýyý kodla deðiþtirmek için bu kütüphane þart!
+using TMPro;
+using Mirror;
 
-public class InteractionManager : MonoBehaviour
+public class InteractionManager : NetworkBehaviour
 {
     public float interactionDistance = 3f;
     public EnvanterKontrol envanterSistemi;
 
-    [Header("Arayüz")]
-    public GameObject etkilesimYazisiObjesi; // Inspector'daki F_Bas_Yazisi'ni buraya koyacaðýz
+    [Header("Arayüz (OTOMATÝK BULUNACAK)")]
+    public GameObject etkilesimYazisiObjesi;
     private TextMeshProUGUI etkilesimMetni;
+
+    private Camera oyuncuKamerasi;
+
+    [Header("Taþýma Sistemi")]
+    public bool sandikTasiyorMu = false; // YENÝ: Karakterin sýrtýnda sandýk var mý?
 
     void Start()
     {
-        // Oyun baþlarken obje içindeki yazý bileþenini bulup hafýzaya alýyoruz
+        if (envanterSistemi == null) envanterSistemi = GetComponent<EnvanterKontrol>();
+
+        oyuncuKamerasi = GetComponentInChildren<Camera>();
+
+        GameObject anaCanvas = GameObject.Find("Canvas");
+        if (anaCanvas != null)
+        {
+            Transform[] tumUIObjeleri = anaCanvas.GetComponentsInChildren<Transform>(true);
+            foreach (Transform obje in tumUIObjeleri)
+            {
+                if (obje.name == "F_Bas_Yazisi") etkilesimYazisiObjesi = obje.gameObject;
+            }
+        }
+
         if (etkilesimYazisiObjesi != null)
         {
             etkilesimMetni = etkilesimYazisiObjesi.GetComponent<TextMeshProUGUI>();
@@ -21,9 +40,13 @@ public class InteractionManager : MonoBehaviour
 
     void Update()
     {
-        Ray ray = new Ray(transform.position, transform.forward);
-        RaycastHit hit;
+        if (!isLocalPlayer) return;
 
+        Ray ray;
+        if (oyuncuKamerasi != null) ray = new Ray(oyuncuKamerasi.transform.position, oyuncuKamerasi.transform.forward);
+        else ray = new Ray(transform.position, transform.forward);
+
+        RaycastHit hit;
         bool yaziAcikMi = false;
         string gosterilecekMetin = "";
 
@@ -32,9 +55,9 @@ public class InteractionManager : MonoBehaviour
             if (hit.collider.CompareTag("Varil"))
             {
                 yaziAcikMi = true;
-                gosterilecekMetin = "Ýçine Bak [F]"; // Varile bakýnca bu yazacak
+                gosterilecekMetin = "Ýçine Bak [F]";
 
-                if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
+                if (Input.GetKeyDown(KeyCode.F) && envanterSistemi != null && !envanterSistemi.envanterAcikMi)
                 {
                     VarilIcerigi varil = hit.collider.GetComponent<VarilIcerigi>();
                     if (varil != null)
@@ -51,11 +74,16 @@ public class InteractionManager : MonoBehaviour
                 if (gemi != null && !gemi.dumenBende)
                 {
                     yaziAcikMi = true;
-                    gosterilecekMetin = "Gemiyi Sür [F]"; // Dümene bakýnca bu yazacak
+                    gosterilecekMetin = "Gemiyi Sür [F]";
 
-                    if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
+                    if (Input.GetKeyDown(KeyCode.F) && envanterSistemi != null && !envanterSistemi.envanterAcikMi)
                     {
-                        gemi.DumeniTutVeyaBirak();
+                        PlayerController asilAdam = GetComponentInParent<PlayerController>();
+
+                        if (asilAdam != null)
+                        {
+                            gemi.DumeniTutVeyaBirak(asilAdam.gameObject);
+                        }
                     }
                 }
             }
@@ -64,7 +92,7 @@ public class InteractionManager : MonoBehaviour
                 yaziAcikMi = true;
                 gosterilecekMetin = "Topu Kullan [F]";
 
-                if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
+                if (Input.GetKeyDown(KeyCode.F) && envanterSistemi != null && !envanterSistemi.envanterAcikMi)
                 {
                     TopSistemi top = hit.collider.GetComponentInParent<TopSistemi>();
                     PlayerController oyuncu = GetComponentInParent<PlayerController>();
@@ -72,82 +100,86 @@ public class InteractionManager : MonoBehaviour
                     if (top != null && oyuncu != null)
                     {
                         top.TopuKullanmayaBasla(oyuncu);
-
-                        // ÝÞTE ÇILDIRMANI ENGELLEYECEK O SÝHÝRLÝ KELÝME:
-                        // Bu komut, F'ye bastýðýmýz an Update döngüsünü anýnda iptal eder.
-                        // Böylece kod aþaðýya inip yazýyý tekrar açamaz!
                         return;
                     }
                 }
             }
+            // --- SANDIK ALMA SÝSTEMÝ ---
+            else if (hit.collider.CompareTag("Sandik"))
+            {
+                // Eðer zaten sýrtýmýzda sandýk yoksa yerden alabiliriz
+                if (!sandikTasiyorMu)
+                {
+                    yaziAcikMi = true;
+                    gosterilecekMetin = "Sandýðý Sýrtla [F]";
+
+                    if (Input.GetKeyDown(KeyCode.F) && envanterSistemi != null && !envanterSistemi.envanterAcikMi)
+                    {
+                        sandikTasiyorMu = true; // Sandýðý aldýk!
+                        Destroy(hit.collider.gameObject); // Sandýðý yerden sil
+                    }
+                }
+            }
+            // --- NPC ETKÝLEÞÝMÝ (SATIÞ VE GÖREV) ---
             else if (hit.collider.CompareTag("NPC"))
             {
                 yaziAcikMi = true;
-                gosterilecekMetin = "Konuþ [F]";
 
-                if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
+                // EÐER SIRTINDA SANDIK VARSA: SATIÞ MODU
+                if (sandikTasiyorMu)
                 {
-                    Debug.Log("SÝSTEM: F tuþuna basýldý, NPC kodu aranýyor..."); // Dedektif 1
+                    gosterilecekMetin = "Sandýðý Sat (100 Altýn) [F]";
 
-                    NPCGorevSistemi npc = hit.collider.GetComponent<NPCGorevSistemi>();
-
-                    if (npc != null)
+                    if (Input.GetKeyDown(KeyCode.F) && envanterSistemi != null && !envanterSistemi.envanterAcikMi)
                     {
-                        npc.NPCIleKonus();
+                        sandikTasiyorMu = false; // Sandýðý verdik, sýrtýmýz boþaldý
+                        CmdSandikSat(); // Sunucuya "Bana 100 altýn yaz!" emrini yolla
                     }
-                    else
+                }
+                // EÐER SIRTINDA SANDIK YOKSA: NORMAL GÖREV/KONUÞMA MODU
+                else
+                {
+                    gosterilecekMetin = "Konuþ [F]";
+
+                    if (Input.GetKeyDown(KeyCode.F) && envanterSistemi != null && !envanterSistemi.envanterAcikMi)
                     {
-                        Debug.LogWarning("HATA: Lazerin çarptýðý objede NPCGorevSistemi kodu BULUNAMADI! Kodu yanlýþ objeye atmýþ olabilirsin."); // Dedektif 2
+                        NPCGorevSistemi npc = hit.collider.GetComponent<NPCGorevSistemi>();
+                        if (npc != null)
+                        {
+                            npc.NPCIleKonus(); // O havalý görev paneli açýlýr
+                        }
                     }
                 }
             }
-            else if (hit.collider.CompareTag("Sandik"))
-            {
-                yaziAcikMi = true;
-                gosterilecekMetin = "Sandýðý Al [F]";
-
-                if (Input.GetKeyDown(KeyCode.F) && !envanterSistemi.envanterAcikMi)
-                {
-                    // Sahnedeki NPC'yi bul ve ona sandýðý aldýðýmýzý söyle
-                    NPCGorevSistemi npc = Object.FindAnyObjectByType<NPCGorevSistemi>();
-                    if (npc != null)
-                    {
-                        npc.SandigiSirtla();
-                    }
-
-                    // Sandýðý yerden sil (Artýk sýrtýmýzda sayýyoruz)
-                    Destroy(hit.collider.gameObject);
-                }
-            }
-            else if (hit.collider.CompareTag("Su"))
-            {
-                
-            }
-           
-
         }
 
-        // --- YAZIYI EKRANDA GÜNCELLEME KISMI ---
         if (etkilesimYazisiObjesi != null)
         {
             etkilesimYazisiObjesi.SetActive(yaziAcikMi);
 
-            // Eðer yazý açýksa ve içinde bir text bileþeni varsa, yazýyý anýnda deðiþtir
             if (yaziAcikMi && etkilesimMetni != null)
             {
                 etkilesimMetni.text = gosterilecekMetin;
             }
-        }   
-
+        }
     }
 
-    // Bu yeni fonksiyon: Script kapatýldýðý (disable) an çalýþýr
     private void OnDisable()
     {
-        // Script uyutulduðunda ekrandaki "Topu Kullan [F]" yazýsýný zorla kapatýyoruz!
         if (etkilesimYazisiObjesi != null)
         {
             etkilesimYazisiObjesi.SetActive(false);
+        }
+    }
+
+    // --- MULTÝPLAYER SÝHRÝ: ÝSTEMCÝDEN SUNUCUYA PARA ÝSTEÐÝ ---
+    [Command]
+    public void CmdSandikSat()
+    {
+        EkipKasasi kasa = FindAnyObjectByType<EkipKasasi>();
+        if (kasa != null)
+        {
+            kasa.KasayaAltinEkle(100); // 100 Altýn direkt kasaya geçer ve herkeste güncellenir!
         }
     }
 }

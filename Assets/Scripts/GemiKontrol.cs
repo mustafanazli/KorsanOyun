@@ -4,19 +4,20 @@ using System.Collections.Generic;
 public class GemiKontrol : MonoBehaviour
 {
     [Header("Gemi Hareket Ayarlarý")]
-    public float maxHiz = 30f;       // Çýkabileceði en yüksek hýz
-    public float ivme = 2f;          // Hýzlanma gücü (Bunu düþürürsen gemi daha geç hýzlanýr)
-    public float yavaslama = 3f;     // Tuþu býrakýnca durma süresi (Sürtünme)
+    public float maxHiz = 30f;
+    public float ivme = 2f;
+    public float yavaslama = 3f;
     public float donusHizi = 15f;
 
     [Header("Baðlantýlar ve UI")]
     public bool dumenBende = false;
-    public GameObject oyuncu;
-    public PlayerController oyuncuKontrol;
     public GameObject dumenCikisYazisi;
 
-    private float guncelHiz = 0f;    // Geminin anlýk gerçek hýzý
+    // SÝHÝR 1: Artýk bu yuvalarý gizledik çünkü kod bunlarý dümeni tutan kiþiye göre otomatik dolduracak
+    private GameObject aktifOyuncu;
+    private PlayerController aktifOyuncuKontrol;
 
+    private float guncelHiz = 0f;
     private List<CharacterController> gemidekiOyuncular = new List<CharacterController>();
     private Vector3 oncekiPozisyon;
     private Quaternion oncekiDonus;
@@ -25,6 +26,19 @@ public class GemiKontrol : MonoBehaviour
     {
         oncekiPozisyon = transform.position;
         oncekiDonus = transform.rotation;
+
+        // --- UI RADARI: DÜMENDEN ÇIKIÞ YAZISINI OTOMATÝK BUL ---
+        Canvas anaCanvas = FindAnyObjectByType<Canvas>();
+        if (anaCanvas != null)
+        {
+            Transform[] tumUIObjeleri = anaCanvas.GetComponentsInChildren<Transform>(true);
+            foreach (Transform obje in tumUIObjeleri)
+            {
+                // DÝKKAT: Hiyerarþideki isimle birebir ayný olmalý (ESC_Cikis_Yazisi gibi bir þey olabilir, sendekine göre düzelt!)
+                if (obje.name == "ESC_Cikis_Yazisi") dumenCikisYazisi = obje.gameObject;
+            }
+        }
+
         if (dumenCikisYazisi != null) dumenCikisYazisi.SetActive(false);
     }
 
@@ -33,38 +47,29 @@ public class GemiKontrol : MonoBehaviour
         float dikeyGirdi = 0f;
         float yatayGirdi = 0f;
 
-        // Sadece dümen bizdeyse klavye tuþlarýný oku
         if (dumenBende)
         {
-            dikeyGirdi = Input.GetAxis("Vertical");   // W ve S tuþlarý
-            yatayGirdi = Input.GetAxis("Horizontal"); // A ve D tuþlarý
+            dikeyGirdi = Input.GetAxis("Vertical");
+            yatayGirdi = Input.GetAxis("Horizontal");
 
-            // Dümenden çýkýþ
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                DumeniTutVeyaBirak();
+                DumeniTutVeyaBirak(); // Çýkýþ yaparken mevcut oyuncuyu serbest býrakýr
             }
         }
 
-        // --- ÝVME VE YAVAÞLAMA MATEMATÝÐÝ (SÝHÝRLÝ KISIM) ---
         if (dikeyGirdi != 0)
         {
-            // Tuþa basýyorsak ivmelenerek hýzlan (Ýleri basýyorsa artý, geri basýyorsa eksi yönde ekler)
             guncelHiz += dikeyGirdi * ivme * Time.deltaTime;
-
-            // Hýzý maksimum sýnýrlar içinde tut (Geri gitme hýzýný maxHiz'in yarýsý yaptýk ki daha gerçekçi olsun)
             guncelHiz = Mathf.Clamp(guncelHiz, -maxHiz / 2f, maxHiz);
         }
         else
         {
-            // Tuþa basmýyorsak (veya dümeni býraktýysak) hýzý yavaþ yavaþ 0'a doðru çek (Fren/Suyun Sürtünmesi)
             guncelHiz = Mathf.MoveTowards(guncelHiz, 0f, yavaslama * Time.deltaTime);
         }
 
-        // Gemiyi hesaplanan güncel hýzla hareket ettir
         transform.Translate(Vector3.forward * guncelHiz * Time.deltaTime);
 
-        // Dönüþ (Sadece dümen bizdeyken ve tuþa basýyorsak döner)
         if (dumenBende && yatayGirdi != 0)
         {
             transform.Rotate(Vector3.up, yatayGirdi * donusHizi * Time.deltaTime);
@@ -73,7 +78,6 @@ public class GemiKontrol : MonoBehaviour
 
     void LateUpdate()
     {
-        // MULTIPLAYER YOLCU FÝZÝÐÝ (Buraya dokunulmadý)
         Vector3 hareketFarki = transform.position - oncekiPozisyon;
         Quaternion donusFarki = transform.rotation * Quaternion.Inverse(oncekiDonus);
 
@@ -93,18 +97,33 @@ public class GemiKontrol : MonoBehaviour
         oncekiDonus = transform.rotation;
     }
 
-    public void DumeniTutVeyaBirak()
+    // SÝHÝR 2: Artýk dümeni kimin tuttuðunu dýþarýdan (InteractionManager'dan) parametre olarak alýyoruz
+    public void DumeniTutVeyaBirak(GameObject basanOyuncu = null)
     {
         dumenBende = !dumenBende;
 
         if (dumenBende)
         {
-            oyuncuKontrol.enabled = false;
+            // Dümeni tutan oyuncuyu hafýzaya al
+            if (basanOyuncu != null)
+            {
+                aktifOyuncu = basanOyuncu;
+                aktifOyuncuKontrol = aktifOyuncu.GetComponent<PlayerController>();
+
+                // Oyuncuyu yerine çivile
+                if (aktifOyuncuKontrol != null) aktifOyuncuKontrol.enabled = false;
+            }
             if (dumenCikisYazisi != null) dumenCikisYazisi.SetActive(true);
         }
         else
         {
-            oyuncuKontrol.enabled = true;
+            // Dümeni býraktýðýmýzda hafýzadaki oyuncuyu serbest býrak
+            if (aktifOyuncuKontrol != null) aktifOyuncuKontrol.enabled = true;
+
+            // Hafýzayý temizle
+            aktifOyuncu = null;
+            aktifOyuncuKontrol = null;
+
             if (dumenCikisYazisi != null) dumenCikisYazisi.SetActive(false);
         }
     }
